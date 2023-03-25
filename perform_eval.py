@@ -1,16 +1,15 @@
+import json
 import sys
 import torch
-from peft import PeftModel
 import transformers
-import gradio as gr
 
-assert (
-    "LlamaTokenizer" in transformers._import_structure["models.llama"]
-), "LLaMA is now in HuggingFace's main branch.\nPlease reinstall it: pip uninstall transformers && pip install git+https://github.com/huggingface/transformers.git"
+# assert (
+#     "LlamaTokenizer" in transformers._import_structure["models.llama"]
+# ), "LLaMA is now in HuggingFace's main branch.\nPlease reinstall it: pip uninstall transformers && pip install git+https://github.com/huggingface/transformers.git"
 from transformers import LlamaTokenizer, LlamaForCausalLM, GenerationConfig
 
 LOAD_8BIT = True
-BASE_MODEL = "decapoda-research/llama-7b-hf"
+BASE_MODEL = "models/models--decapoda-research--llama-7b-hf/snapshots/5f98eefcc80e437ef68d457ad7bf167c2c6a1348"
 LORA_WEIGHTS = "tloen/alpaca-lora-7b"
 
 tokenizer = LlamaTokenizer.from_pretrained(BASE_MODEL)
@@ -19,18 +18,18 @@ assert (
     BASE_MODEL
 ), "Please specify a BASE_MODEL in the script, e.g. 'decapoda-research/llama-7b-hf'"
 
-device = "cpu"
+# device = "cpu"
 
-# if torch.cuda.is_available():
-#     device = "cuda"
-# else:
-#     device = "cpu"
+if torch.cuda.is_available():
+    device = "cuda"
+else:
+    device = "cpu"
 
-# try:
-#     if torch.backends.mps.is_available():
-#         device = "mps"
-# except:
-#     pass
+try:
+    if torch.backends.mps.is_available():
+        device = "mps"
+except:
+    pass
 
 if device == "cuda":
     model = LlamaForCausalLM.from_pretrained(
@@ -104,10 +103,26 @@ def evaluate(
     output = tokenizer.decode(s)
     return output.split("### Response:")[1].strip()
 
+with open('inputs.json') as f:
+    inputs = json.load(f)
+ 
+
+def without_emotion(conversation):
+    utterence = conversation[-1]
+
+    for u in conversation:
+        del u['annotation']
+
+    utterence['emotion'] = ''
+
+
+    return json.dumps(conversation, indent=4)[:-10]
+
+
 res = evaluate(
-    "Complete the following JSON object, representing a private text conversation between two people",
-    """
-    """,
+    """"Below is a conversation between two people, represented in a JSON format. An emotion is associated with each utterence from the following set: [neutral, joy, sadness, fear, anger, surprise, disgust].
+    Non-neutral utterences are utterence whose emotion is ambiguous.""",
+    without_emotion(inputs[0])
 )
 
 print(res)
